@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
+import { NextRequest } from 'next/server';
+import { sameOrigin } from '@/lib/csrf';
+import { limited } from '@/lib/rate-limit';
+export async function POST(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.redirect(new URL('/admin/login?error=origin', request.url)); const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'; if (limited(`admin-login:${ip}`, 10)) return NextResponse.redirect(new URL('/admin/login?error=throttled', request.url)); const form = await request.formData(); const email = String(form.get('email')); const password = String(form.get('password')); if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD || !process.env.AUTH_SECRET || email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) return NextResponse.redirect(new URL('/admin/login?error=invalid', request.url)); const value = createHmac('sha256', process.env.AUTH_SECRET).update(email).digest('hex'); const response = NextResponse.redirect(new URL('/admin/inbox', request.url)); response.cookies.set('bm_admin', value, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 }); return response; }

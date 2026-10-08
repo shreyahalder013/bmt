@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# next.js
+.next/
+out/
+
+# production
+build/
+
+# env files (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+*.env
+
+# typescript
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# testing & coverage
+coverage/
+playwright-report/
+test-results/
+
+# uploads & temp storage
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

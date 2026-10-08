@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { sameOrigin } from '@/lib/csrf';
+import { z } from 'zod';
+const testSchema = z.object({ batchId: z.string().cuid(), name: z.string().trim().min(1).max(120), subject: z.string().trim().min(1).max(100), date: z.string(), maxMarks: z.coerce.number().int().positive().max(10000) });
+const markSchema = z.object({ testId: z.string().cuid(), studentId: z.string().cuid(), marks: z.coerce.number().int().min(0).max(100000) });
+export async function GET() { return NextResponse.json(await db.test.findMany({ include: { marks: true }, orderBy: { date: 'desc' } })); }
+export async function POST(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.json({ error: 'Request origin is not allowed.' }, { status: 403 }); const body = await request.json().catch(() => null) as { action?: string } & Record<string, unknown> | null; if (body?.action === 'mark') { const mark = markSchema.safeParse(body); if (!mark.success) return NextResponse.json({ error: 'Check the mark fields.' }, { status: 400 }); const record = await db.testMark.upsert({ where: { testId_studentId: { testId: mark.data.testId, studentId: mark.data.studentId } }, update: { marks: mark.data.marks }, create: mark.data }); return NextResponse.json(record); } const parsed = testSchema.safeParse(body); if (!parsed.success) return NextResponse.json({ error: 'Check the test fields.' }, { status: 400 }); const record = await db.test.create({ data: { ...parsed.data, date: new Date(parsed.data.date) } }); return NextResponse.json(record, { status: 201 }); }

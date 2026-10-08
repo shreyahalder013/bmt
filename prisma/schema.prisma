@@ -1,0 +1,603 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url = env("DATABASE_URL")
+	directUrl = env("DIRECT_URL")
+}
+
+enum EnquiryStatus {
+	new
+	contacted
+	enrolled
+	closed
+}
+
+model Enquiry {
+	id String @id @default(cuid())
+	studentName String
+	parentName String
+	class String
+	school String
+	phone String
+	email String?
+	subjects String
+	message String
+	status EnquiryStatus @default(new)
+	notes String @default("")
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	followUps FollowUp[]
+}
+
+model ClassProgram {
+	id String @id @default(cuid())
+	title String
+	range String
+	description String
+	details Json
+	order Int @default(0)
+	published Boolean @default(true)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+enum FacultyStatus {
+  PUBLISHED
+  DRAFT
+  HIDDEN
+  PENDING_APPROVAL
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  FORMER
+}
+
+enum FacultyTitle {
+  MR
+  MS
+  MRS
+  DR
+  SIR
+  MADAM
+  NONE
+}
+
+model Faculty {
+  id String @id @default(cuid())
+  slug String @unique
+  displayName String
+  fullName String
+  title FacultyTitle @default(NONE)
+  role String
+  shortBio String? @db.VarChar(200)
+  fullBio String?
+  qualifications String?
+  experienceYears Int?
+  languages String?
+  specialities String[]
+  achievements Json? // Array of { text: String, year?: Int }
+  subjects String[]
+  classLevels String[]
+  socialLinks Json? // { linkedin?: String, youtube?: String, instagram?: String }
+  publicFields Json? // { email: Boolean, phone: Boolean }
+  contactEmail String?
+  contactPhone String?
+  internalNotes String?
+  status FacultyStatus @default(DRAFT)
+  featured Boolean @default(false)
+  order Int @default(0)
+  consentAt DateTime?
+  consentBy String?
+  photoAssetId String?
+  photoAlt String?
+  photoFocalX Float?
+  photoFocalY Float?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  joinedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  batches FacultyBatch[]
+  @@index([slug])
+  @@index([status])
+  @@index([order])
+}
+
+model FacultyBatch {
+  id String @id @default(cuid())
+  facultyId String
+  batchId String
+  faculty Faculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  @@unique([facultyId, batchId])
+}
+
+
+model Result {
+	id String @id @default(cuid())
+	title String
+	text String
+	order Int @default(0)
+	published Boolean @default(false)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model Testimonial {
+	id String @id @default(cuid())
+	quote String
+	author String?
+	order Int @default(0)
+	published Boolean @default(false)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model GalleryItem {
+	id String @id @default(cuid())
+	imageUrl String
+	caption String
+	category String
+	altText String
+	order Int @default(0)
+	published Boolean @default(false)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+	id String @id @default(cuid())
+	title String
+	body String
+	startDate DateTime
+	endDate DateTime
+	order Int @default(0)
+	published Boolean @default(false)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model SiteSettings {
+	id String @id @default("site")
+	phone String
+	whatsapp String?
+	address String
+	mapLink String?
+	socialLinks Json?
+	openingHours String?
+	updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+	OWNER
+	STAFF
+	TEACHER
+}
+
+enum RecordStatus {
+	ACTIVE
+	INACTIVE
+}
+
+enum EnquiryPipeline {
+	NEW
+	FOLLOW_UP
+	DEMO_SCHEDULED
+	ADMITTED
+	LOST
+}
+
+enum AttendanceStatus {
+	PRESENT
+	ABSENT
+	LATE
+	LEAVE
+}
+
+enum PaymentMode {
+	CASH
+	UPI
+	CARD
+	BANK_TRANSFER
+	CHEQUE
+}
+
+enum ChequeStatus {
+	PENDING
+	DEPOSITED
+	CLEARED
+	BOUNCED
+}
+
+model User {
+	id String @id @default(cuid())
+	email String @unique
+	name String
+	role UserRole @default(STAFF)
+	active Boolean @default(true)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	importJobs ImportJob[] @relation("ImportJobCreator")
+	recycleBinItems RecycleBinItem[] @relation("RecycleBinDeleter")
+	mediaUploads MediaAsset[] @relation("MediaUploads")
+}
+
+model FollowUp {
+	id String @id @default(cuid())
+	enquiryId String
+	assignedToId String?
+	dueAt DateTime
+	outcome String @default("")
+	completedAt DateTime?
+	createdAt DateTime @default(now())
+	enquiry Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+	@@index([dueAt])
+	@@index([enquiryId])
+}
+
+model Student {
+	id String @id @default(cuid())
+	firstName String
+	lastName String @default("")
+	phone String?
+	email String?
+	className String
+	school String @default("")
+	admissionDate DateTime @default(now())
+	status RecordStatus @default(ACTIVE)
+	deletedAt DateTime?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	enrollments Enrollment[]
+	guardians Guardian[]
+	feePlans FeePlan[]
+	@@index([phone])
+	@@index([status])
+	@@index([admissionDate])
+}
+
+model Guardian {
+	id String @id @default(cuid())
+	studentId String
+	name String
+	phone String
+	email String?
+	relationship String @default("Parent/guardian")
+	student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+	@@index([phone])
+}
+
+model Batch {
+	id String @id @default(cuid())
+	name String
+	className String
+	subjects String
+	teacherId String?
+	days String @default("")
+	time String @default("")
+	capacity Int @default(0)
+	startDate DateTime?
+	endDate DateTime?
+	active Boolean @default(true)
+	enrollments Enrollment[]
+	facultyBatches FacultyBatch[]
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	@@index([active])
+	@@index([className])
+}
+
+model Enrollment {
+	id String @id @default(cuid())
+	studentId String
+	batchId String
+	startDate DateTime @default(now())
+	endDate DateTime?
+	active Boolean @default(true)
+	student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+	batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+	@@unique([studentId, batchId])
+	@@index([batchId])
+}
+
+model AttendanceRecord {
+	id String @id @default(cuid())
+	studentId String
+	batchId String
+	date DateTime
+	status AttendanceStatus
+	notes String @default("")
+	createdAt DateTime @default(now())
+	@@unique([studentId, batchId, date])
+	@@index([batchId, date])
+}
+
+model FeePlan {
+	id String @id @default(cuid())
+	studentId String
+	batchId String?
+	totalAmount Int
+	discountAmount Int @default(0)
+	student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+	installments Instalment[]
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	@@index([studentId])
+}
+
+model Instalment {
+	id String @id @default(cuid())
+	feePlanId String
+	dueDate DateTime
+	amount Int
+	paidAmount Int @default(0)
+	feePlan FeePlan @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+	payments Payment[]
+	@@index([dueDate])
+}
+
+model Payment {
+	id String @id @default(cuid())
+	instalmentId String?
+	studentId String
+	amount Int
+	mode PaymentMode
+	date DateTime @default(now())
+	reference String @default("")
+	receivedById String?
+	deletedAt DateTime?
+	instalment Instalment? @relation(fields: [instalmentId], references: [id])
+	@@index([date])
+	@@index([studentId])
+}
+
+model Cheque {
+	id String @id @default(cuid())
+	studentId String
+	chequeNumber String
+	bank String
+	dueDate DateTime
+	amount Int
+	status ChequeStatus @default(PENDING)
+	@@index([dueDate, status])
+}
+
+model Expense {
+	id String @id @default(cuid())
+	category String
+	amount Int
+	date DateTime @default(now())
+	notes String @default("")
+	receiptUrl String?
+	deletedAt DateTime?
+	@@index([date])
+}
+
+model Test {
+	id String @id @default(cuid())
+	batchId String
+	name String
+	subject String
+	date DateTime
+	maxMarks Int
+	marks TestMark[]
+	@@index([batchId, date])
+}
+
+model TestMark {
+	id String @id @default(cuid())
+	testId String
+	studentId String
+	marks Int
+	test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+	@@unique([testId, studentId])
+}
+
+model Notification {
+	id String @id @default(cuid())
+	userId String?
+	title String
+	body String
+	readAt DateTime?
+	createdAt DateTime @default(now())
+	@@index([userId, readAt])
+}
+
+model AuditLog {
+	id String @id @default(cuid())
+	userId String?
+	action String
+	entity String
+	entityId String
+	metadata Json?
+	createdAt DateTime @default(now())
+	@@index([entity, entityId])
+	@@index([createdAt])
+}
+
+enum ImportJobStatus {
+	PENDING
+	PROCESSING
+	COMPLETED
+	FAILED
+	CANCELLED
+}
+
+enum ImportRowStatus {
+	VALID
+	WARNING
+	ERROR
+	SKIPPED
+}
+
+enum ImportMatchStrategy {
+	CREATE_ONLY
+	UPDATE_ONLY
+	UPSERT
+}
+
+enum RecycleBinEntity {
+	ENQUIRY
+	STUDENT
+	BATCH
+	ENROLLMENT
+	ATTENDANCE_RECORD
+	FEE_PLAN
+	INSTALMENT
+	PAYMENT
+	EXPENSE
+	TEST
+	TEST_MARK
+	FACULTY
+	TESTIMONIAL
+	RESULT
+	GALLERY_ITEM
+	ANNOUNCEMENT
+}
+
+model ImportJob {
+	id String @id @default(cuid())
+	type String
+	status ImportJobStatus @default(PENDING)
+	fileName String
+	fileSize Int
+	totalRows Int
+	validRows Int
+	warningRows Int
+	errorRows Int
+	skippedRows Int
+	createdRows Int
+	updatedRows Int
+	matchStrategy ImportMatchStrategy @default(UPSERT)
+	createdById String?
+	createdAt DateTime @default(now())
+	startedAt DateTime?
+	completedAt DateTime?
+	errorMessage String?
+	metadata Json?
+	createdBy User? @relation("ImportJobCreator", fields: [createdById], references: [id], onDelete: SetNull)
+	rows ImportRow[]
+	@@index([status])
+	@@index([createdById])
+	@@index([createdAt])
+}
+
+model ImportRow {
+	id String @id @default(cuid())
+	jobId String
+	rowNumber Int
+	status ImportRowStatus @default(VALID)
+	action String?
+	entityId String?
+	originalData Json
+	processedData Json?
+	errors Json?
+	warnings Json?
+	previousValues Json?
+	job ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+	@@index([jobId])
+	@@index([status])
+	@@index([entityId])
+}
+
+model RecycleBinItem {
+	id String @id @default(cuid())
+	entity RecycleBinEntity
+	entityId String
+	data Json
+	deletedById String?
+	deletedAt DateTime @default(now())
+	permanentlyDeletedAt DateTime?
+	deletedBy User? @relation("RecycleBinDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
+	@@index([entity, entityId])
+	@@index([deletedAt])
+	@@index([deletedById])
+}
+
+enum MediaSlot {
+	HERO
+	ABOUT
+	FACULTY
+	GALLERY
+	GALLERY_THUMBNAIL
+	TESTIMONIAL_AVATAR
+	RESULT
+	EVENT_BANNER
+	OG_IMAGE
+	LOGO
+	FAVICON
+}
+
+enum MediaStatus {
+	PROCESSING
+	READY
+	FAILED
+	DELETED
+}
+
+enum ConsentStatus {
+	NOT_REQUIRED
+	PENDING
+	GRANTED
+	DENIED
+	WITHDRAWN
+}
+
+model MediaAsset {
+	id String @id @default(cuid())
+	slot MediaSlot
+	originalFilename String
+	originalWidth Int
+	originalHeight Int
+	originalSize Int
+	mimeType String
+	ratioWidth Int
+	ratioHeight Int
+	cropX Int?
+	cropY Int?
+	cropWidth Int?
+	cropHeight Int?
+	focalX Float?
+	focalY Float?
+	altText String?
+	caption String?
+	isDecorative Boolean @default(false)
+	consentStatus ConsentStatus @default(NOT_REQUIRED)
+	consentGivenAt DateTime?
+	consentWithdrawnAt DateTime?
+	blurDataURL String?
+	dominantColor String?
+	status MediaStatus @default(PROCESSING)
+	uploadedById String?
+	deletedAt DateTime?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	variants MediaVariant[]
+	uploadedBy User? @relation("MediaUploads", fields: [uploadedById], references: [id], onDelete: SetNull)
+	@@index([slot])
+	@@index([status])
+	@@index([deletedAt])
+	@@index([uploadedById])
+	@@index([createdAt])
+}
+
+model MediaVariant {
+	id String @id @default(cuid())
+	assetId String
+	width Int
+	height Int
+	size Int
+	format String
+	url String
+	blurDataURL String?
+	createdAt DateTime @default(now())
+	asset MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+	@@unique([assetId, width, format])
+	@@index([assetId])
+	@@index([format])
+}

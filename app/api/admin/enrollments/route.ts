@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { sameOrigin } from '@/lib/csrf';
+import { z } from 'zod';
+const schema = z.object({ studentId: z.string().cuid(), batchId: z.string().cuid() });
+export async function POST(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.json({ error: 'Request origin is not allowed.' }, { status: 403 }); const parsed = schema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: 'Select a student and batch.' }, { status: 400 }); const existing = await db.enrollment.findUnique({ where: { studentId_batchId: parsed.data } }); if (existing?.active) return NextResponse.json({ error: 'This student is already enrolled in this batch.' }, { status: 409 }); const enrollment = existing ? await db.enrollment.update({ where: { id: existing.id }, data: { active: true, endDate: null } }) : await db.enrollment.create({ data: parsed.data }); return NextResponse.json(enrollment, { status: 201 }); }
+export async function DELETE(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.json({ error: 'Request origin is not allowed.' }, { status: 403 }); const id = request.nextUrl.searchParams.get('id'); if (!id) return NextResponse.json({ error: 'Enrollment id is required.' }, { status: 400 }); await db.enrollment.update({ where: { id }, data: { active: false, endDate: new Date() } }); return NextResponse.json({ ok: true }); }

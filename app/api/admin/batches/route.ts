@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { sameOrigin } from '@/lib/csrf';
+import { z } from 'zod';
+const batchSchema = z.object({ name: z.string().trim().min(1).max(100), className: z.string().trim().min(1).max(40), subjects: z.string().trim().min(1).max(200), days: z.string().trim().max(100).default(''), time: z.string().trim().max(80).default(''), capacity: z.coerce.number().int().min(0).max(1000).default(0) });
+export async function GET() { return NextResponse.json(await db.batch.findMany({ where: { active: true }, include: { _count: { select: { enrollments: true } } }, orderBy: { name: 'asc' } })); }
+export async function POST(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.json({ error: 'Request origin is not allowed.' }, { status: 403 }); const parsed = batchSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: 'Check the batch fields.' }, { status: 400 }); const batch = await db.batch.create({ data: parsed.data }); await db.auditLog.create({ data: { action: 'created', entity: 'batch', entityId: batch.id } }); return NextResponse.json(batch, { status: 201 }); }
+export async function DELETE(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.json({ error: 'Request origin is not allowed.' }, { status: 403 }); const id = request.nextUrl.searchParams.get('id'); if (!id) return NextResponse.json({ error: 'Batch id is required.' }, { status: 400 }); await db.batch.update({ where: { id }, data: { active: false } }); await db.auditLog.create({ data: { action: 'deleted', entity: 'batch', entityId: id } }); return NextResponse.json({ ok: true }); }

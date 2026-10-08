@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { sameOrigin } from '@/lib/csrf';
+import { z } from 'zod';
+const attendanceSchema = z.object({ studentId: z.string().cuid(), batchId: z.string().cuid(), date: z.string(), status: z.enum(['PRESENT','ABSENT','LATE','LEAVE']), notes: z.string().trim().max(300).default('') });
+export async function GET(request: NextRequest) { const batchId = request.nextUrl.searchParams.get('batchId'); const date = request.nextUrl.searchParams.get('date'); const records = await db.attendanceRecord.findMany({ where: { ...(batchId ? { batchId } : {}), ...(date ? { date: new Date(date) } : {}) }, orderBy: { studentId: 'asc' } }); return NextResponse.json(records); }
+export async function POST(request: NextRequest) { if (!sameOrigin(request)) return NextResponse.json({ error: 'Request origin is not allowed.' }, { status: 403 }); const parsed = attendanceSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: 'Check the attendance fields.' }, { status: 400 }); const date = new Date(parsed.data.date); date.setHours(0, 0, 0, 0); const record = await db.attendanceRecord.upsert({ where: { studentId_batchId_date: { studentId: parsed.data.studentId, batchId: parsed.data.batchId, date } }, update: { status: parsed.data.status, notes: parsed.data.notes }, create: { ...parsed.data, date } }); return NextResponse.json(record); }
